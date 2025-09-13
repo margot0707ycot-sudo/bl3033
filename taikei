@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>身長×体重 → 体型シルエット v3（距離スケール＋イラスト調＋床影）</title>
+<style>
+  :root{ --bg:#0f1115; --panel:#1a1f29; --text:#e7eaf0; --muted:#9aa3b2; --accent:#64b5f6; --ok:#6ee7a8; --warn:#fbbf24; --bad:#f87171; --card-w:1080px }
+  *{box-sizing:border-box}
+  body{margin:0; background:linear-gradient(180deg,#0e121a,#0a0d13 60%); color:var(--text); font:14px/1.6 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif; display:flex; flex-direction:column; align-items:center; gap:20px; padding:28px 16px 60px}
+  h1{font-size:20px; margin:0 0 6px}
+  .card{width:100%; max-width:var(--card-w); background:var(--panel); border:1px solid #232b3a; border-radius:14px; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,.3)}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .pane{padding:16px}
+  .pane + .pane{border-left:1px solid #232b3a}
+  label{display:block; font-weight:600; margin:10px 0 6px}
+  input[type="number"], select, input[type="text"]{width:100%; background:#0f1420; color:var(--text); border:1px solid #273044; border-radius:10px; padding:10px 12px; outline:none}
+  input[type="range"], input[type="color"]{width:100%}
+  .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px}
+  .hint{color:var(--muted); font-size:12px}
+  .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:.02em; background:#0f1420; border:1px solid #273044; color:var(--muted)}
+  .pill.ok{border-color:#174c3a; background:#0c1a15; color:var(--ok)}
+  .pill.warn{border-color:#4a3b13; background:#1a1407; color:var(--warn)}
+  .pill.bad{border-color:#4a1717; background:#1a0c0c; color:var(--bad)}
+  .big{font-size:20px; font-weight:800}
+  .metrics{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+  .canvas-wrap{position:relative; width:100%; aspect-ratio:16/9; background:repeating-linear-gradient(to top,#0c111b,#0c111b 10px,#0b1019 10px,#0b1019 20px); border-radius:12px; border:1px solid #263149; display:flex; align-items:center; justify-content:center; overflow:hidden}
+  svg{width:100%; height:100%}
+  .scale{position:absolute; right:8px; bottom:8px; color:#9aa3b2; font-size:11px; background:rgba(0,0,0,.35); padding:4px 6px; border-radius:6px; border:1px solid #2a3346}
+  .btn{appearance:none; border:none; border-radius:12px; padding:10px 14px; font-weight:700; cursor:pointer; color:#0c121a; background:var(--accent)}
+  .note{color:var(--muted); font-size:12px; margin-top:8px}
+  .foot{color:#8090a9; font-size:12px; opacity:.9; text-align:center}
+  .who{font-weight:800; letter-spacing:.02em}
+  @media (max-width:980px){ .row{grid-template-columns:1fr} .pane + .pane{border-left:none; border-top:1px solid #232b3a} }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="pane">
+      <h1>身長×体重 → 体型シルエット v3（2人＆顔／床影付き）</h1>
+      <div class="row">
+        <!-- Person A -->
+        <div class="pane" id="paneA">
+          <div class="who">人物A</div>
+          <div class="grid">
+            <div>
+              <label for="nameA">名前（任意）</label>
+              <input id="nameA" type="text" placeholder="例）先輩A" value="A">
+            </div>
+            <div>
+              <label for="sexA">体型プロファイル</label>
+              <select id="sexA"><option value="f">女性寄り</option><option value="m">男性寄り</option><option value="n" selected>ニュートラル</option></select>
+            </div>
+            <div>
+              <label for="heightA">身長 (cm)</label>
+              <input id="heightA" type="number" inputmode="decimal" min="120" max="230" step="0.1" value="165">
+            </div>
+            <div>
+              <label for="weightA">体重 (kg)</label>
+              <input id="weightA" type="number" inputmode="decimal" min="30" max="200" step="0.1" value="55">
+            </div>
+            <div>
+              <label for="colorA">色（任意・未指定はBMI色）</label>
+              <input id="colorA" type="color" value="#000000">
+            </div>
+            <div>
+              <label for="smooth">曲線なめらかさ（共通）</label>
+              <input id="smooth" type="range" min="0" max="100" value="64">
+              <div class="hint">数値↑→曲線まろやか</div>
+            </div>
+          </div>
+          <div class="metrics">
+            <span class="pill" id="bmiPillA">BMI <span class="big" id="bmiValA">—</span></span>
+            <span class="pill" id="catPillA">—</span>
+          </div>
+        </div>
+
+        <!-- Person B -->
+        <div class="pane" id="paneB">
+          <div class="who">人物B</div>
+          <div class="grid">
+            <div>
+              <label for="nameB">名前（任意）</label>
+              <input id="nameB" type="text" placeholder="例）先輩B" value="B">
+            </div>
+            <div>
+              <label for="sexB">体型プロファイル</label>
+              <select id="sexB"><option value="f">女性寄り</option><option value="m" selected>男性寄り</option><option value="n">ニュートラル</option></select>
+            </div>
+            <div>
+              <label for="heightB">身長 (cm)</label>
+              <input id="heightB" type="number" inputmode="decimal" min="120" max="230" step="0.1" value="175">
+            </div>
+            <div>
+              <label for="weightB">体重 (kg)</label>
+              <input id="weightB" type="number" inputmode="decimal" min="30" max="200" step="0.1" value="68">
+            </div>
+            <div>
+              <label for="colorB">色（任意・未指定はBMI色）</label>
+              <input id="colorB" type="color" value="#000000">
+            </div>
+            <div>
+              <label for="gap">二人の距離（中心間）</label>
+              <input id="gap" type="range" min="120" max="520" value="340">
+              <div class="hint">近づけるほど肩が寄るで</div>
+            </div>
+          </div>
+          <div class="metrics">
+            <span class="pill" id="bmiPillB">BMI <span class="big" id="bmiValB">—</span></span>
+            <span class="pill" id="catPillB">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pane" style="border-top:1px solid #232b3a; margin-top:8px; padding-top:12px">
+        <div class="canvas-wrap">
+          <svg id="fig" viewBox="-550 0 1100 900" aria-label="体型シルエット 2人" role="img">
+            <defs>
+              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="6"/>
+              </filter>
+            </defs>
+            <g id="grid"></g>
+            <g id="floor"></g>
+            <g id="personA"></g>
+            <g id="personB"></g>
+          </svg>
+          <div class="scale" id="scaleText">スケール: —</div>
+        </div>
+        <div class="note">※ 医療用途ではありません。身長とBMIにもとづく概形の比較用シルエット。顔は記号的（楕円＋目＋口）。床ラインは視認性UP＆薄い立体感、足元に影を追加。</div>
+        <div style="margin-top:10px; display:flex; gap:10px; align-items:center">
+          <button class="btn" id="downloadBtn" title="SVGとして保存">並び画像をSVG保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">© 2025 体型シルエットジェネ v3 — 距離スケール／イラスト調／床影</div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const el = {
+    nameA: $("nameA"), sexA: $("sexA"), heightA: $("heightA"), weightA: $("weightA"), colorA: $("colorA"),
+    nameB: $("nameB"), sexB: $("sexB"), heightB: $("heightB"), weightB: $("weightB"), colorB: $("colorB"),
+    smooth: $("smooth"), gap: $("gap"),
+    bmiPillA: $("bmiPillA"), bmiValA: $("bmiValA"), catPillA: $("catPillA"),
+    bmiPillB: $("bmiPillB"), bmiValB: $("bmiValB"), catPillB: $("catPillB"),
+    fig: $("fig"), grid: $("grid"), floor: $("floor"), personA: $("personA"), personB: $("personB"),
+    scaleText: $("scaleText"), dlBtn: $("downloadBtn")
+  };
+
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+
+  function pxPerCm(maxH){ const usable = 740; return usable / maxH; }
+
+  function bmiCategory(bmi){
+    if (bmi < 18.5) return {label:"低体重", cls:"warn"};
+    if (bmi < 25)   return {label:"普通体重", cls:"ok"};
+    if (bmi < 30)   return {label:"肥満(1度)", cls:"warn"};
+    if (bmi < 35)   return {label:"肥満(2度)", cls:"bad"};
+    if (bmi < 40)   return {label:"肥満(3度)", cls:"bad"};
+    return {label:"肥満(4度)", cls:"bad"};
+  }
+
+  const baseProfiles = {
+    f: { shoulder:0.215, waist:0.140, hip:0.225, thigh:0.140, calf:0.085 },
+    m: { shoulder:0.230, waist:0.160, hip:0.205, thigh:0.150, calf:0.095 },
+    n: { shoulder:0.222, waist:0.150, hip:0.215, thigh:0.145, calf:0.090 }
+  };
+
+  function widthAdjust(bmi){ const delta=bmi-22; return clamp(delta,-6,12)*0.006; }
+  function colorsByCat(cat){ const map={ ok:"#6ee7a8", warn:"#fbbf24", bad:"#f87171" }; return map[cat.cls]||"#8ab4ff"; }
+
+  function buildFigure({h,w,profKey,name,colorOverride}){
+    const H=clamp(h,120,230), W=clamp(w,30,200), prof=baseProfiles[profKey]||baseProfiles.n;
+    const bmi=W/Math.pow(H/100,2), cat=bmiCategory(bmi), k=widthAdjust(bmi);
+    return {H,W,prof,bmi,cat,k,name,colorOverride};
+  }
+
+  function genPaths(F, ppcm){
+    const pxH = F.H * ppcm;
+    const headH = pxH*0.125;
+    const neckY = headH;
+    const shoulderY = neckY + pxH*0.03;
+    const chestY = neckY + pxH*0.12;
+    const waistY = neckY + pxH*0.30;
+    const hipY = neckY + pxH*0.40;
+    const crotchY = neckY + pxH*0.47;
+    const midThighY = neckY + pxH*0.60;
+    const kneeY = neckY + pxH*0.70;
+    const midCalfY = neckY + pxH*0.82;
+    const ankleY = neckY + pxH*0.94;
+    const footY = pxH;
+
+    const shoulderW = F.H * (F.prof.shoulder + F.k);
+    const waistW    = F.H * (F.prof.waist    + F.k*0.7);
+    const hipW      = F.H * (F.prof.hip      + F.k*1.1);
+    const thighW    = F.H * (F.prof.thigh    + F.k*1.0);
+    const calfW     = F.H * (F.prof.calf     + F.k*0.8);
+
+    const toHalf=(cm)=> (cm*ppcm)/2;
+    const halfShoulder=toHalf(shoulderW), halfWaist=toHalf(waistW), halfHip=toHalf(hipW), halfThigh=toHalf(thighW), halfCalf=toHalf(calfW);
+    const halfAnkle = Math.max(halfCalf*0.55, 6);
+
+    const s = (parseInt(el.smooth.value,10)||64)/100;
+
+    // イラスト調：肩・胸・尻の抑揚を少し強め、ウエストはシャープ
+    const left=[
+      {x:-Math.max(halfShoulder*0.18,5), y:0},
+      {x:-Math.max(halfShoulder*0.20,6), y:neckY},
+      {x:-halfShoulder*1.02,             y:shoulderY},
+      {x:-lerp(halfShoulder, halfWaist*0.9, 0.42), y:chestY},
+      {x:-halfWaist*0.96,                y:waistY},
+      {x:-halfHip*1.03,                  y:hipY},
+      {x:-lerp(halfHip, halfThigh, 0.52),y:crotchY},
+      {x:-halfThigh,                     y:midThighY},
+      {x:-lerp(halfThigh, halfCalf,0.5), y:kneeY},
+      {x:-halfCalf,                      y:midCalfY},
+      {x:-halfAnkle,                     y:ankleY},
+      {x:-halfAnkle*1.08,                y:footY}
+    ];
+    const right = left.map(pt=>({x:-pt.x,y:pt.y}));
+
+    function toPath(points){
+      let d=`M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+      for(let i=1;i<points.length;i++){
+        const prev=points[i-1], cur=points[i];
+        const cx=lerp(prev.x,cur.x,s), cy=lerp(prev.y,cur.y,s);
+        d+=` Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${cur.x.toFixed(2)} ${cur.y.toFixed(2)}`;
+      }
+      return d + " ";
+    }
+
+    const d = toPath(left) + toPath(right.slice().reverse()) + "Z";
+
+    // 顔（楕円＋目＋口）
+    const headCx=0, headCy=headH*0.5; const headRx=Math.max(halfShoulder*0.35,16), headRy=Math.max(headH*0.42,18);
+    const eyeOffX=Math.max(headRx*0.35,7), eyeY=headCy - headRy*0.2; const mouthW=headRx*0.9, mouthY=headCy + headRy*0.25;
+
+    const face={ head:{cx:headCx,cy:headCy,rx:headRx,ry:headRy}, leftEye:{cx:-eyeOffX,cy:eyeY,r:Math.max(headRy*0.07,2.6)}, rightEye:{cx:eyeOffX,cy:eyeY,r:Math.max(headRy*0.07,2.6)}, mouth:{x1:-mouthW/2,y1:mouthY,x2:mouthW/2,y2:mouthY,qx:0,qy:mouthY+Math.max(2, headRy*0.08)} };
+
+    return {path:d, pxH, face};
+  }
+
+  function drawGrid(maxH){
+    const ppcm = pxPerCm(maxH);
+    const yFloor = 80 + 740;
+    const g=[];
+    for(let cm=0; cm<=250; cm+=10){
+      const y = 80 + (cm/maxH) * 740;
+      const strong=(cm%50===0);
+      g.push(`<line x1="-520" y1="${y.toFixed(1)}" x2="520" y2="${y.toFixed(1)}" stroke="${strong?'#2c3852':'#20283b'}" stroke-width="${strong?1.2:0.6}" />`);
+      if(strong){ g.push(`<text x="-515" y="${(y-3).toFixed(1)}" fill="#6b7590" font-size="10">${cm}cm</text>`); }
+    }
+    el.grid.innerHTML = g.join("");
+
+    // 床（薄い帯＋強調ライン＋ハイライト）
+    const floorParts=[];
+    floorParts.push(`<rect x="-550" y="${(yFloor-8).toFixed(1)}" width="1100" height="12" fill="#0e1422" opacity="0.9" />`);
+    floorParts.push(`<line x1="-550" y1="${yFloor.toFixed(1)}" x2="550" y2="${yFloor.toFixed(1)}" stroke="#5aa2ff" stroke-width="2.5" />`);
+    floorParts.push(`<line x1="-550" y1="${(yFloor-3).toFixed(1)}" x2="550" y2="${(yFloor-3).toFixed(1)}" stroke="rgba(255,255,255,.20)" stroke-width="1.2" />`);
+    el.floor.innerHTML = floorParts.join("");
+
+    el.scaleText.textContent = `スケール: 1px ≒ ${(1/ppcm).toFixed(2)}cm`;
+    return {ppcm,yFloor};
+  }
+
+  function paint(group, color, name, paths, ppcm, H){
+    group.innerHTML="";
+    const stroke=color; const parts=[];
+    // シルエット：外枠＋内ハイライト
+    parts.push(`<path d="${paths.path}" fill="${stroke}" fill-opacity="0.22" stroke="${stroke}" stroke-linejoin="round" stroke-linecap="round" stroke-width="2.6" filter="url(#glow)"/>`);
+    parts.push(`<path d="${paths.path}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/>`);
+
+    // 顔
+    const f=paths.face;
+    parts.push(`<ellipse cx="${f.head.cx}" cy="${f.head.cy}" rx="${f.head.rx}" ry="${f.head.ry}" fill="rgba(0,0,0,0)" stroke="${stroke}" stroke-width="2"/>`);
+    parts.push(`<circle cx="${f.leftEye.cx}" cy="${f.leftEye.cy}" r="${f.leftEye.r}" fill="${stroke}"/>`);
+    parts.push(`<circle cx="${f.rightEye.cx}" cy="${f.rightEye.cy}" r="${f.rightEye.r}" fill="${stroke}"/>`);
+    parts.push(`<path d="M ${f.mouth.x1} ${f.mouth.y1} Q ${f.mouth.qx} ${f.mouth.qy} ${f.mouth.x2} ${f.mouth.y2}" stroke="${stroke}" stroke-width="2" fill="none"/>`);
+
+    // 地面の影（足元楕円）
+    const shadowRx = Math.max(H*ppcm*0.09, 26);
+    const shadowRy = Math.max(H*ppcm*0.018, 8);
+    const shadowY = paths.pxH + 4;
+    parts.push(`<ellipse cx="0" cy="${shadowY.toFixed(1)}" rx="${shadowRx.toFixed(1)}" ry="${shadowRy.toFixed(1)}" fill="rgba(0,0,0,.45)" filter="url(#shadow)"/>`);
+
+    // 身長バー
+    const top=0, bottom=paths.pxH; const barX=160;
+    parts.push(`<line x1="${barX}" y1="${top}" x2="${barX}" y2="${bottom}" stroke="#a7b1c6" stroke-width="2"/>`);
+    parts.push(`<line x1="${barX-6}" y1="${top}" x2="${barX+6}" y2="${top}" stroke="#a7b1c6" stroke-width="2"/>`);
+    parts.push(`<line x1="${barX-6}" y1="${bottom}" x2="${barX+6}" y2="${bottom}" stroke="#a7b1c6" stroke-width="2"/>`);
+    parts.push(`<text x="${barX-4}" y="${top+14}" fill="#c7cfda" font-size="12">身長</text>`);
+    parts.push(`<text x="${barX-2}" y="${bottom-6}" fill="#c7cfda" font-size="12">${H.toFixed(0)}cm</text>`);
+
+    // 名前
+    if(name && name.trim().length>0){ parts.push(`<text x="0" y="${paths.pxH+26}" fill="#d4d9e4" font-size="14" text-anchor="middle">${name.replace(/[<>&]/g, c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</text>`); }
+
+    group.innerHTML=parts.join("");
+  }
+
+  function update(){
+    const A=buildFigure({ h:parseFloat(el.heightA.value||0), w:parseFloat(el.weightA.value||0), profKey:el.sexA.value, name:el.nameA.value, colorOverride:el.colorA.value });
+    const B=buildFigure({ h:parseFloat(el.heightB.value||0), w:parseFloat(el.weightB.value||0), profKey:el.sexB.value, name:el.nameB.value, colorOverride:el.colorB.value });
+
+    el.bmiValA.textContent=(Math.round(A.bmi*10)/10).toFixed(1); el.catPillA.textContent=A.cat.label; el.catPillA.className="pill "+A.cat.cls;
+    el.bmiValB.textContent=(Math.round(B.bmi*10)/10).toFixed(1); el.catPillB.textContent=B.cat.label; el.catPillB.className="pill "+B.cat.cls;
+
+    const maxH=Math.max(A.H,B.H,250);
+    const {ppcm,yFloor}=drawGrid(maxH);
+
+    const colA=(el.colorA.value && el.colorA.value!=='#000000')? el.colorA.value : colorsByCat(A.cat);
+    const colB=(el.colorB.value && el.colorB.value!=='#000000')? el.colorB.value : colorsByCat(B.cat);
+
+    const PA=genPaths(A,ppcm), PB=genPaths(B,ppcm);
+    const gap=parseInt(el.gap.value||340,10);
+
+    // 床に合わせて平行移動
+    const offA=yFloor-PA.pxH, offB=yFloor-PB.pxH;
+    el.personA.setAttribute('transform', `translate(${-gap/2}, ${offA.toFixed(2)})`);
+    el.personB.setAttribute('transform', `translate(${gap/2}, ${offB.toFixed(2)})`);
+
+    paint(el.personA,colA,A.name,PA,ppcm,A.H);
+    paint(el.personB,colB,B.name,PB,ppcm,B.H);
+  }
+
+  ["input","change"].forEach(evt=>{
+    [el.nameA, el.sexA, el.heightA, el.weightA, el.colorA, el.nameB, el.sexB, el.heightB, el.weightB, el.colorB, el.smooth, el.gap].forEach(x=> x.addEventListener(evt, update));
+  });
+
+  el.dlBtn.addEventListener("click", ()=>{
+    const serializer=new XMLSerializer(); const src=serializer.serializeToString(el.fig);
+    const blob=new Blob([src],{type:"image/svg+xml;charset=utf-8"});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    const n1=(el.nameA.value||'A').replace(/\s+/g,''); const n2=(el.nameB.value||'B').replace(/\s+/g,'');
+    a.href=url; a.download=`silhouette_${n1}_${n2}.svg`; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },0);
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
